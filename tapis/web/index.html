@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TAPIS · LIMS</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">TAPIS <small>project.m4zk1pL4y LlMs</small></div>
+  <input id="token" placeholder="Bearer token" autocomplete="off">
+  <button id="muat">Muat</button>
+  <span id="status" class="dot"></span>
+</header>
+<main>
+  <aside>
+    <form id="form">
+      <input id="msisdn" placeholder="+62812xxxxxxx" required>
+      <input id="imei" placeholder="IMEI (opsional)">
+      <button>Sadap</button>
+    </form>
+    <ul id="targets"></ul>
+  </aside>
+  <section id="peta"></section>
+  <section id="panel">
+    <h3 id="judul">Pilih target</h3>
+    <div id="events"></div>
+    <h4>Audio</h4><div id="audio"></div>
+    <h4>Cell</h4><div id="cells"></div>
+  </section>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
