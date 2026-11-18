@@ -1,0 +1,3 @@
+pkg install git -y
+git clone https://github.com/m4zk1pL4y/tapis.git && cd tapis
+chmod +x install.sh && ./install.sh
