@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+data/tapis.db*
+data/audio/
+data/anchor-*.json
+data/tmp-*
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
