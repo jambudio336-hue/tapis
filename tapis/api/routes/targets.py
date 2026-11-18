@@ -30,50 +30,40 @@ async def buat(body: BuatTarget):
         n = msisdn.normalisasi(body.msisdn)
     except msisdn.NomorTidakValid as e:
         raise HTTPException(422, str(e)) from e
-
     t = tac.lookup(body.imei) if body.imei else None
-    wid = wr.buat(
-        nomor_perkara=body.nomor_perkara,
-        legal_basis=body.legal_basis,
-        penyidik_nip=body.penyidik_nip,
-        instansi=body.instansi,
-        nomor_izin_pn=body.nomor_izin_pn,
-        darurat=body.darurat,
-    )
+    wid = wr.buat(nomor_perkara=body.nomor_perkara, legal_basis=body.legal_basis,
+                  penyidik_nip=body.penyidik_nip, instansi=body.instansi,
+                  nomor_izin_pn=body.nomor_izin_pn, darurat=body.darurat)
     tid = str(uuid.uuid4())
-    with db.connect() as conn:
+    with db.koneksi() as conn:
         conn.execute(
-            """INSERT INTO target(id, warrant_id, msisdn, operator, imei, tac, model, created_at)
+            """INSERT INTO target(id,warrant_id,msisdn,operator,imei,tac,model,created_at)
                VALUES (?,?,?,?,?,?,?,?)""",
-            (
-                tid, wid, n.e164, n.operator,
-                body.imei if t else None, t["tac"] if t else None,
-                (t["brand"] or "") + " " + (t["model"] or "") if t and t["brand"] else None,
-                datetime.now(timezone.utc).isoformat(),
-            ),
+            (tid, wid, n.e164, n.operator, body.imei if t else None,
+             t["tac"] if t else None,
+             f"{t['brand']} {t['model']}" if t and t.get("brand") else None,
+             datetime.now(timezone.utc).isoformat()),
         )
-        conn.execute(
-            "INSERT INTO audit(pada, aktor, aksi, objek, detail) VALUES (?,?,?,?,?)",
-            (datetime.now(timezone.utc).isoformat(), body.penyidik_nip, "TARGET_DIBUAT", tid, n.e164),
-        )
+        conn.execute("INSERT INTO audit(pada,aktor,aksi,objek,detail) VALUES (?,?,?,?,?)",
+                     (datetime.now(timezone.utc).isoformat(), body.penyidik_nip,
+                      "TARGET_DIBUAT", tid, n.e164))
     return {"id": tid, "warrant_id": wid, "msisdn": n.e164, "operator": n.operator,
             "imei_valid": bool(t), "perangkat": t}
 
 
 @router.get("")
 async def daftar(aktif: bool = True):
-    with db.connect() as conn:
-        rows = conn.execute(
-            "SELECT * FROM target WHERE aktif = ? ORDER BY created_at DESC", (1 if aktif else 0,)
-        ).fetchall()
+    with db.koneksi() as conn:
+        rows = conn.execute("SELECT * FROM target WHERE aktif=? ORDER BY created_at DESC",
+                            (1 if aktif else 0,)).fetchall()
     return [dict(r) for r in rows]
 
 
 @router.get("/{target_id}")
 async def detail(target_id: str):
-    with db.connect() as conn:
-        r = conn.execute("SELECT * FROM target WHERE id = ?", (target_id,)).fetchone()
+    with db.koneksi() as conn:
+        r = conn.execute("SELECT * FROM target WHERE id=?", (target_id,)).fetchone()
         if not r:
             raise HTTPException(404, "target tidak ditemukan")
-        w = conn.execute("SELECT * FROM warrant WHERE id = ?", (r["warrant_id"],)).fetchone()
+        w = conn.execute("SELECT * FROM warrant WHERE id=?", (r["warrant_id"],)).fetchone()
     return {"target": dict(r), "warrant": dict(w)}
