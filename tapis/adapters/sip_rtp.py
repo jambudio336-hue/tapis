@@ -1,4 +1,3 @@
-"""Ekstraksi audio dari capture RTP (pcap) -> WAV. Memakai tshark bila tersedia."""
 from __future__ import annotations
 
 import shutil
@@ -10,33 +9,25 @@ from .. import config
 
 
 def tersedia() -> bool:
-    return shutil.which("tshark") is not None
+    return bool(shutil.which("tshark") and shutil.which("ffmpeg"))
 
 
 def ekstrak(pcap: Path, target_id: str) -> dict:
     if not tersedia():
-        raise RuntimeError("tshark belum terpasang (apt install tshark)")
-    out_dir = config.AUDIO_DIR / target_id
-    out_dir.mkdir(parents=True, exist_ok=True)
+        raise RuntimeError("butuh tshark dan ffmpeg")
+    out = config.AUDIO_DIR / target_id
+    out.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
-        subprocess.run(
-            [
-                "tshark", "-r", str(pcap),
-                "-Y", "rtp",
-                "--export-objects", f"rtp,{tmp}",
-            ],
-            check=True, capture_output=True, timeout=600,
-        )
-        files = sorted(Path(tmp).glob("*.au")) + sorted(Path(tmp).glob("*.raw"))
-        if not files:
-            raise RuntimeError("tidak ada stream RTP di dalam capture")
-        src = files[0]
-        dst = out_dir / f"{pcap.stem}.wav"
-        if src.suffix == ".au":
-            subprocess.run(
-                ["ffmpeg", "-y", "-i", str(src), "-ar", "8000", "-ac", "1", str(dst)],
-                check=True, capture_output=True,
-            )
+        subprocess.run(["tshark", "-r", str(pcap), "-Y", "rtp",
+                        "--export-objects", f"rtp,{tmp}"],
+                       check=True, capture_output=True, timeout=600)
+        berkas = sorted(Path(tmp).glob("*.au")) + sorted(Path(tmp).glob("*.raw"))
+        if not berkas:
+            raise RuntimeError("tidak ada stream RTP")
+        dst = out / f"{pcap.stem}.wav"
+        if berkas[0].suffix == ".au":
+            subprocess.run(["ffmpeg", "-y", "-i", str(berkas[0]), "-ar", "8000", "-ac", "1", str(dst)],
+                           check=True, capture_output=True)
         else:
-            shutil.copy2(src, dst)
+            shutil.copy2(berkas[0], dst)
     return {"path": dst, "kodek": "g711", "bytes": dst.stat().st_size}
