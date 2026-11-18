@@ -1,24 +1,27 @@
-"""Adapter HI2/HI3 berbasis XML (ETSI TS 102 232)."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from xml.etree import ElementTree as ET
 
-from lxml import etree
-
-NS = {"x": "http://www.3gpp.org/ftp/Specs/archive/33_series/33.108"}
+IRI = ("iriEvent", "iri", "event")
 
 
 def parse(xml: bytes) -> dict:
-    root = etree.fromstring(xml)
-    jenis = "iri" if root.find(".//x:iriEvent", NS) is not None else "cc"
-    target = (root.findtext(".//x:targetMSISDN", NS) or root.findtext(".//x:target", NS) or "").strip()
-    corr = (root.findtext(".//x:correlationID", NS) or "").strip()
+    root = ET.fromstring(xml)
+    tag = root.tag.split("}")[-1].lower()
+    target = corr = ""
+    for el in root.iter():
+        nama = el.tag.split("}")[-1].lower()
+        if nama in ("targetmsisdn", "target", "msisdn") and el.text:
+            target = el.text.strip()
+        if nama == "correlationid" and el.text:
+            corr = el.text.strip()
     if not target:
-        raise ValueError("payload HI tidak memuat identitas target")
+        raise ValueError("payload HI tanpa identitas target")
     return {
-        "jenis": jenis,
+        "jenis": "IRI" if tag in IRI else "CC",
         "target": target,
         "correlation_id": corr or target,
         "terjadi_pada": datetime.now(timezone.utc).isoformat(),
-        "payload": etree.tostring(root, encoding="unicode"),
+        "payload": ET.tostring(root, encoding="unicode"),
     }
