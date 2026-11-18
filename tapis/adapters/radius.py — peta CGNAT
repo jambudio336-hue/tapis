@@ -1,4 +1,3 @@
-"""Parser RADIUS Accounting. Memetakan IP:port publik -> pelanggan."""
 from __future__ import annotations
 
 import socket
@@ -7,11 +6,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 AKUN = 4
-ATTR = {
-    1: "user_name", 4: "nas_ip", 5: "nas_port", 8: "framed_ip",
-    31: "calling_station_id", 40: "acct_status", 44: "acct_session_id",
-    55: "event_timestamp", 87: "nas_port_id",
-}
+ATTR = {1: "user_name", 4: "nas_ip", 5: "nas_port", 8: "framed_ip", 31: "calling_station_id",
+        40: "acct_status", 44: "acct_session_id", 55: "event_timestamp", 87: "nas_port_id"}
 STATUS = {1: "start", 2: "stop", 3: "interim"}
 
 
@@ -31,8 +27,7 @@ class Sesi:
     nas_port_id: str | None = None
     pada: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
-    def publik(self) -> tuple[str, int] | None:
-        """IP publik + port dari Framed-IP + NAS-Port-Id."""
+    def publik(self):
         if not self.framed_ip:
             return None
         port = self.nas_port
@@ -41,27 +36,24 @@ class Sesi:
                 port = int(self.nas_port_id.rsplit(":", 1)[1])
             except ValueError:
                 pass
-        if port is None:
-            return None
-        return self.framed_ip, port
+        return (self.framed_ip, port) if port is not None else None
 
 
 def parse(paket: bytes) -> Sesi:
     if len(paket) < 20:
         raise RadiusRusak("paket terlalu pendek")
-    kode, _ident, panjang = struct.unpack("!BBH", paket[:4])
+    kode, _i, panjang = struct.unpack("!BBH", paket[:4])
     if kode != AKUN:
         raise RadiusRusak(f"bukan Accounting-Request (kode {kode})")
     if panjang > len(paket):
         raise RadiusRusak("panjang tidak konsisten")
-
     sesi = Sesi()
     i = 20
     while i + 2 <= panjang:
         tipe, ln = paket[i], paket[i + 1]
         if ln < 2 or i + ln > panjang:
             break
-        nilai = paket[i + 2 : i + ln]
+        nilai = paket[i + 2:i + ln]
         nama = ATTR.get(tipe)
         if nama:
             if tipe == 40 and nilai:
@@ -74,16 +66,3 @@ def parse(paket: bytes) -> Sesi:
                 setattr(sesi, nama, nilai.decode("utf-8", "replace"))
         i += ln
     return sesi
-
-
-def cocokkan(nomor: str) -> list[dict]:
-    """Cari sesi aktif untuk nomor pelanggan (Calling-Station-Id)."""
-    from .. import db
-
-    with db.connect() as conn:
-        rows = conn.execute(
-            """SELECT * FROM radius_session WHERE calling_station_id = ? AND status != 'stop'
-               ORDER BY id DESC""",
-            (nomor,),
-        ).fetchall()
-    return [dict(r) for r in rows]
