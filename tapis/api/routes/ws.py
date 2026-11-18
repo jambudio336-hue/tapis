@@ -10,27 +10,23 @@ from ...services.bus import bus
 router = APIRouter()
 
 
+async def _ambil(*queues):
+    tugas = [asyncio.create_task(q.get()) for q in queues]
+    selesai, sisa = await asyncio.wait(tugas, return_when=asyncio.FIRST_COMPLETED)
+    for t in sisa:
+        t.cancel()
+    return next(iter(selesai)).result()
+
+
 @router.websocket("/ws")
 async def ws(sock: WebSocket):
     await sock.accept()
-    q = bus.sub("event")
-    qa = bus.sub("audio")
-    qc = bus.sub("cell")
+    qs = [bus.sub(k) for k in ("event", "audio", "cell")]
     try:
         while True:
-            msg = await asyncio.wait_for(_gabung(q, qa, qc), timeout=25)
-            await sock.send_text(json.dumps(msg, default=str))
+            await sock.send_text(json.dumps(await asyncio.wait_for(_ambil(*qs), 25), default=str))
     except (WebSocketDisconnect, asyncio.TimeoutError):
         pass
     finally:
-        bus.unsub("event", q)
-        bus.unsub("audio", qa)
-        bus.unsub("cell", qc)
-
-
-async def _gabung(*queues):
-    tasks = [asyncio.create_task(q.get()) for q in queues]
-    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-    for t in pending:
-        t.cancel()
-    return next(iter(done)).result()
+        for k, q in zip(("event", "audio", "cell"), qs):
+            bus.unsub(k, q)
