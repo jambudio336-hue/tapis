@@ -1,10 +1,9 @@
-"""Normalisasi & validasi nomor Indonesia (E.164 / MSISDN)."""
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
 
-from .. import config, db
+from .. import db
 
 _STRIP = re.compile(r"[^\d+]")
 
@@ -39,20 +38,14 @@ def bersihkan(raw: str) -> str:
 def normalisasi(raw: str) -> Nomor:
     e164 = bersihkan(raw)
     digit = e164[1:]
-    if not (10 <= len(digit) <= 14):
-        raise NomorTidakValid(f"panjang tidak wajar: {raw}")
-    if not digit[2:].isdigit():
-        raise NomorTidakValid(f"mengandung non-digit: {raw}")
-
+    if not (10 <= len(digit) <= 14) or not digit.isdigit():
+        raise NomorTidakValid(f"format tidak wajar: {raw}")
     nasional = "0" + digit[2:]
-    op = mnc = None
-    with db.connect() as conn:
+    with db.koneksi() as conn:
         row = conn.execute(
             "SELECT operator, mnc FROM operator_prefix WHERE prefix = ?", (nasional[:4],)
         ).fetchone()
-        if row:
-            op, mnc = row["operator"], row["mnc"]
-    return Nomor(e164=e164, nasional=nasional, operator=op, mnc=mnc)
+    return Nomor(e164, nasional, row["operator"] if row else None, row["mnc"] if row else None)
 
 
 def ke_nasional(e164: str) -> str:
