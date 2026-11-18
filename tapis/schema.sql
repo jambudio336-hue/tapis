@@ -101,6 +101,33 @@ CREATE TABLE IF NOT EXISTS operator_prefix (
     mnc      TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS cell_db (
+    mcc     TEXT NOT NULL,
+    mnc     TEXT NOT NULL,
+    lac     TEXT NOT NULL,
+    cid     TEXT NOT NULL,
+    lat     REAL,
+    lon     REAL,
+    akurasi REAL DEFAULT 500,
+    sumber  TEXT NOT NULL DEFAULT 'auto',
+    PRIMARY KEY (mcc, mnc, lac, cid)
+);
+
+CREATE TABLE IF NOT EXISTS radius_session (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_name          TEXT,
+    calling_station_id TEXT,
+    framed_ip          TEXT,
+    nas_port           INTEGER,
+    nas_port_id        TEXT,
+    nas_ip             TEXT,
+    acct_status        TEXT,
+    acct_session_id    TEXT,
+    pada               TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_radius_nomor ON radius_session(calling_station_id);
+CREATE INDEX IF NOT EXISTS idx_radius_ip ON radius_session(framed_ip);
+
 CREATE TABLE IF NOT EXISTS mccmnc (
     mcc      TEXT NOT NULL,
     mnc      TEXT NOT NULL,
