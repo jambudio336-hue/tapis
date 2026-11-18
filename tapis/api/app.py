@@ -1,3 +1,8 @@
+from .routes import audio, chain as chain_r, events, intel, radius as radius_r, targets, warrants, ws
+...
+for r in (targets.router, warrants.router, events.router, audio.router,
+          intel.router, radius_r.router, chain_r.router, ws.router):
+
 from __future__ import annotations
 
 from pathlib import Path
