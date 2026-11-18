@@ -1,0 +1,94 @@
+"""Resolusi lokasi offline berlapis. Tanpa kunci API."""
+from __future__ import annotations
+
+import math
+
+from .. import db
+
+AKURASI_CENTROID = 400_000.0
+
+
+def _jarak(a: tuple[float, float], b: tuple[float, float]) -> float:
+    r = 6_371_000
+    p1, p2 = math.radians(a[0]), math.radians(b[0])
+    dp = p2 - p1
+    dl = math.radians(b[1] - a[1])
+    h = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(h))
+
+
+def _persis(mcc: str, mnc: str, lac: str, cid: str) -> dict | None:
+    with db.connect() as conn:
+        r = conn.execute(
+            "SELECT lat, lon, akurasi FROM cell_db WHERE mcc=? AND mnc=? AND lac=? AND cid=?",
+            (mcc, mnc, lac, cid),
+        ).fetchone()
+    if not r:
+        return None
+    return {"lat": r["lat"], "lon": r["lon"], "akurasi": r["akurasi"], "sumber": "sel-diketahui"}
+
+
+def _trilaterasi(titik: list[tuple[float, float, float]]) -> dict | None:
+    """Titik: (lat, lon, radius). Least-squares linearisasi."""
+    if len(titik) < 3:
+        return None
+    x0, y0, r0 = titik[0]
+    A, b = [], []
+    for x, y, r in titik[1:]:
+        A.append([2 * (x - x0), 2 * (y - y0)])
+        b.append((x * x - x0 * x0) + (y * y - y0 * y0) - (r * r - r0 * r0))
+    a11 = sum(row[0] ** 2 for row in A)
+    a12 = sum(row[0] * row[1] for row in A)
+    a22 = sum(row[1] ** 2 for row in A)
+    b1 = sum(row[0] * bi for row, bi in zip(A, b))
+    b2 = sum(row[1] * bi for row, bi in zip(A, b))
+    det = a11 * a22 - a12 * a12
+    if abs(det) < 1e-12:
+        return None
+    x = (b1 * a22 - b2 * a12) / det
+    y = (a11 * b2 - a12 * b1) / det
+    resid = [_jarak((x, y), (px, py)) - pr for px, py, pr in titik]
+    rms = math.sqrt(sum(r * r for r in resid) / len(resid))
+    return {"lat": x, "lon": y, "akurasi": max(rms, 50.0), "sumber": "multilaterasi"}
+
+
+def _tetangga(mcc: str, mnc: str, lac: str, limit: int = 8) -> list[tuple[float, float, float]]:
+    with db.connect() as conn:
+        rows = conn.execute(
+            """SELECT lat, lon, akurasi FROM cell_db
+               WHERE mcc=? AND mnc=? AND lac=? AND lat IS NOT NULL LIMIT ?""",
+            (mcc, mnc, lac, limit),
+        ).fetchall()
+    return [(r["lat"], r["lon"], r["akurasi"] or 500.0) for r in rows]
+
+
+def _centroid(mnc: str) -> dict | None:
+    with db.connect() as conn:
+        r = conn.execute(
+            "SELECT AVG(lat) la, AVG(lon) lo FROM cell_db WHERE mnc=?", (mnc,)
+        ).fetchone()
+    if not r or r["la"] is None:
+        return None
+    return {"lat": r["la"], "lon": r["lo"], "akurasi": AKURASI_CENTROID, "sumber": "centroid"}
+
+
+def resolve(mcc: str, mnc: str, lac: str, cid: str) -> dict | None:
+    p = _persis(mcc, mnc, lac, cid)
+    if p:
+        return p
+    t = _trilaterasi(_tetangga(mcc, mnc, lac))
+    if t:
+        return t
+    c = _centroid(mnc)
+    if c:
+        return c
+    return None
+
+
+def belajar(mcc: str, mnc: str, lac: str, cid: str, lat: float, lon: float, akurasi: float) -> None:
+    with db.connect() as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO cell_db(mcc, mnc, lac, cid, lat, lon, akurasi, sumber)
+               VALUES (?,?,?,?,?,?,?, 'auto')""",
+            (mcc, mnc, lac, cid, lat, lon, akurasi),
+        )
