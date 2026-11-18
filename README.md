@@ -1,25 +1,55 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 260" width="900" height="260">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#12161b"/><stop offset="1" stop-color="#0b0d10"/>
-    </linearGradient>
-  </defs>
-  <rect width="900" height="260" fill="url(#g)"/>
-  <g stroke="#2ea3a3" fill="none" stroke-width="1.4">
-    <circle cx="450" cy="92" r="16"><animate attributeName="r" values="12;44" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0" dur="2.4s" repeatCount="indefinite"/></circle>
-    <circle cx="450" cy="92" r="16"><animate attributeName="r" values="12;44" dur="2.4s" begin="0.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0" dur="2.4s" begin="0.8s" repeatCount="indefinite"/></circle>
-    <circle cx="450" cy="92" r="16"><animate attributeName="r" values="12;44" dur="2.4s" begin="1.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0" dur="2.4s" begin="1.6s" repeatCount="indefinite"/></circle>
-  </g>
-  <g stroke="#3d4a55" stroke-width="2" fill="none">
-    <path d="M450 92 L450 240"/>
-    <path d="M450 120 L414 240 M450 120 L486 240"/>
-    <path d="M450 165 L424 240 M450 165 L476 240"/>
-    <path d="M450 120 L414 120 M450 120 L486 120"/>
-    <path d="M450 165 L424 165 M450 165 L476 165"/>
-  </g>
-  <rect x="432" y="70" width="36" height="10" rx="2" fill="#2ea3a3"/>
-  <g fill="#6b7885" font-family="ui-monospace,monospace" font-size="11">
-    <text x="20" y="26">BTS / eNB / gNB</text>
-    <text x="700" y="26">IRI + CC → LIMS</text>
-  </g>
-</svg>
+<div align="center">
+
+<img src="docs/assets/bts.svg" alt="TAPIS" width="100%">
+
+# TAPIS
+
+**Lawful Interception Management System untuk Indonesia**
+
+Masukkan satu nomor `+62`. Dapatkan intelijen nomor, jejak IRI/CC,
+audio panggilan, dan pelacakan lokasi real-time — lengkap dengan
+rantai bukti ber-hash dan berita acara.
+
+`project.m4zk1pL4y LlMs`
+
+[![ci](https://github.com/m4zk1pL4y/tapis/actions/workflows/ci.yml/badge.svg)](../../actions)
+[![lisensi](https://img.shields.io/badge/lisensi-Apache--2.0-2ea3a3)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.10%2B-2ea3a3)](pyproject.toml)
+[![platform](https://img.shields.io/badge/kali%20·%20ubuntu%20·%20termux-ok-2ea3a3)](#instalasi)
+
+</div>
+
+---
+
+> ### Batas kejujuran
+> TAPIS adalah **LIMS sungguhan**, bukan mockup. Tapi menyadap audio
+> panggilan seluler tidak mungkin hanya dari nomor — sinyalnya ada di
+> jaringan operator. TAPIS bekerja nyata di tiga jalur:
+>
+> 1. **Intelijen** (langsung jalan, tanpa kredensial): normalisasi E.164,
+>    operator, TAC/IMEI, MCC-MNC, resolusi Cell ID.
+> 2. **Ingest** (jalan setelah disambung): feed HI2/HI3 ETSI dari LIG
+>    operator, atau capture SIP/RTP.
+> 3. **Bukti** (selalu jalan): hash chain, manifest, verifikasi, berita acara.
+>
+> Yang tidak nyata hanyalah "sambungan ajaib ke Telkomsel". Semua yang
+> lain di repo ini adalah kode produksi.
+
+## Kenapa TAPIS
+
+| Masalah LIMS konvensional | Pendekatan TAPIS |
+|---|---|
+| Skema HI diimprovisasi, integrasi gagal | Adapter ETSI TS 102 232, model kanonik |
+| Hash tidak ada, bukti digugurkan | Hash chain per target + anchor + verifikasi |
+| Intersepsi jalan setelah izin habis | Warrant engine dengan TTL otomatis |
+| Retensi tak terkendali | Retensi terjadwal + bukti pemusnahan |
+| Butuh server berat | SQLite + ASGI, jalan di Termux |
+
+## Instalasi
+
+**Kali / Ubuntu**
+
+```bash
+git clone https://github.com/m4zk1pL4y/tapis.git && cd tapis
+chmod +x install.sh && ./install.sh
+source .venv/bin/activate
