@@ -8,8 +8,8 @@ from ..deps import wajib_token
 router = APIRouter(prefix="/warrants", tags=["warrants"], dependencies=[Depends(wajib_token)])
 
 
-@router.get("/kedaluwarsa")
-async def jalankan_ttl():
+@router.post("/ttl")
+async def jalankan():
     return {"ditutup": wr.kedaluwarsa()}
 
 
