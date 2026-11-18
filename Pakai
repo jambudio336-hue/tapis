@@ -1,0 +1,9 @@
+tapis                      # banner
+tapis init                 # siapkan db + data referensi
+tapis intel 081234567890   # intelijen nomor
+tapis imei 356938035643809 # lookup TAC
+tapis target 081234567890  # daftarkan target
+tapis serve                # API + dashboard di :8787
+tapis verify <id>          # verifikasi rantai bukti
+tapis berita-acara <id>    # cetak berita acara
+tapis doctor               # cek dependensi
