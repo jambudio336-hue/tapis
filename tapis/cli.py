@@ -1,3 +1,43 @@
+import secrets
+
+
+@app.command()
+def up(host: str = config.HOST, port: int = config.PORT, buka: bool = False):
+    """Siapkan semuanya lalu jalankan server. Satu perintah."""
+    env = Path(".env")
+    if not env.exists() or "ganti-token-ini" in env.read_text():
+        token = secrets.token_urlsafe(24)
+        env.write_text(
+            f"TAPIS_TOKEN={token}\nTAPIS_DB=./data/tapis.db\n"
+            f"TAPIS_AUDIO_DIR=./data/audio\nRETENTION_DAYS=30\n"
+            f"TTL_WARN_DAYS=3\nHOST={host}\nPORT={port}\n"
+        )
+        c.print(f"[grey70]token dibuat:[/] [bold]{token}[/]")
+    import importlib, os
+    os.environ["TAPIS_TOKEN"] = next(
+        ln.split("=", 1)[1] for ln in env.read_text().splitlines() if ln.startswith("TAPIS_TOKEN=")
+    )
+    importlib.reload(config)
+    db.init_db()
+    db.seed()
+    url = f"http://{host}:{port}/?t={config.TOKEN}"
+    c.print(f"[grey37]buka:[/] [bold]{url}[/]")
+    if buka:
+        import webbrowser
+        webbrowser.open(url)
+    import uvicorn
+    uvicorn.run("tapis.api.app:app", host=host, port=port)
+
+
+@app.command()
+def capture(iface: str, host: str, target_id: str, babak: int = 30):
+    """Tangkap RTP terus-menerus dari antarmuka."""
+    from .services import capture as cap
+    if not cap.tersedia():
+        c.print("[red]butuh tshark dan ffmpeg")
+        raise typer.Exit(1)
+    cap.terus(iface, host, target_id, babak)
+
 from __future__ import annotations
 
 import asyncio
