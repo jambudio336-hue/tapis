@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 
 from . import config
@@ -8,39 +9,46 @@ from . import config
 SCHEMA = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
 
 
-def connect() -> sqlite3.Connection:
+@contextmanager
+def koneksi():
+    """Koneksi yang benar-benar ditutup."""
     conn = sqlite3.connect(config.DB_PATH, timeout=30, isolation_level=None)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def init_db() -> None:
-    with connect() as conn:
+    with koneksi() as conn:
         conn.executescript(SCHEMA)
 
 
-def seed() -> tuple[int, int]:
-    """Muat data referensi operator & TAC. Idempotent."""
-    op = config.DATA_DIR / "operator_prefix_id.csv"
-    tac = config.DATA_DIR / "tac_seed.csv"
-    n_op = n_tac = 0
-    with connect() as conn:
-        for row in _rows(op):
+def seed() -> tuple[int, int, int]:
+    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    pasangan = [
+        ("operator_prefix_id.csv", "INSERT OR REPLACE INTO operator_prefix(prefix,operator,mnc) VALUES (?,?,?)"),
+        ("tac_seed.csv", "INSERT OR REPLACE INTO tac_db(tac,brand,model) VALUES (?,?,?)"),
+    ]
+    n = []
+    with koneksi() as conn:
+        for nama, sql in pasangan:
+            hitung = 0
+            for baris in _baris(config.DATA_DIR / nama):
+                conn.execute(sql, baris)
+                hitung += 1
+            n.append(hitung)
+        for baris in _baris(config.DATA_DIR / "cell_seed.csv"):
             conn.execute(
-                "INSERT OR REPLACE INTO operator_prefix(prefix, operator, mnc) VALUES (?,?,?)",
-                row,
+                "INSERT OR IGNORE INTO cell_db(mcc,mnc,lac,cid,lat,lon,akurasi,sumber) VALUES (?,?,?,?,?,?,?,'seed')",
+                baris,
             )
-            n_op += 1
-        for row in _rows(tac):
-            conn.execute(
-                "INSERT OR REPLACE INTO tac_db(tac, brand, model) VALUES (?,?,?)", row
-            )
-            n_tac += 1
-    return n_op, n_tac
+    return n[0], n[1], 0
 
 
-def _rows(path: Path):
+def _baris(path: Path):
     if not path.exists():
         return
     for line in path.read_text(encoding="utf-8").splitlines()[1:]:
